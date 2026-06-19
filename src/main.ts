@@ -444,9 +444,13 @@ export async function initializeApp(): Promise<void> {
   // @ts-ignore
   if (typeof window.Neutralino !== 'undefined' && window.NL_MODE === 'window') {
     try {
+      // Use execCommand (fire-and-forget shell command) — more reliable on Windows
+      // than spawnProcess for launching a server exe.
       // @ts-ignore
-      await window.Neutralino.os.spawnProcess(`"${window.NL_PATH}/backend${window.NL_EXTENSION}"`);
-      
+      const backendPath = `${window.NL_PATH}/backend${window.NL_EXTENSION}`;
+      // @ts-ignore
+      await window.Neutralino.os.execCommand(`"${backendPath}"`, { background: true });
+
       // @ts-ignore
       window.Neutralino.events.on('windowClose', async () => {
         try {
@@ -466,12 +470,13 @@ export async function initializeApp(): Promise<void> {
   fullRender();
 
   // Wait for backend to be ready (especially important on Windows where the
-  // backend process takes a moment to start up after being spawned)
-  state.status = 'Connecting to backend...';
+  // backend.exe needs several seconds to start up after being launched).
+  state.status = 'Starting backend, please wait...';
   state.busy = true;
   updateStatusBar();
 
-  const MAX_ATTEMPTS = 30;
+  // Poll up to 20 seconds (40 × 500 ms)
+  const MAX_ATTEMPTS = 40;
   const RETRY_DELAY_MS = 500;
   let connected = false;
 
@@ -483,15 +488,17 @@ export async function initializeApp(): Promise<void> {
         break;
       }
     } catch {
-      // not ready yet
+      // not ready yet — keep waiting
     }
+    state.status = `Starting backend... (${Math.round(((i + 1) * RETRY_DELAY_MS) / 1000)}s)`;
+    updateStatusBar();
     await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
   }
 
   state.busy = false;
 
   if (!connected) {
-    state.status = 'Error: Could not connect to backend. Is the Python server running?';
+    state.status = 'Error: Could not connect to backend. Make sure backend.exe is in the same folder.';
     updateStatusBar();
     return;
   }
@@ -1337,12 +1344,27 @@ async function loadNextPage(): Promise<void> {
 }
 
 async function addFolder(): Promise<void> {
-  let folder = await apiPickFolder();
+  let folder: string | null = null;
 
-  if (!folder) {
-    folder = prompt('Enter the absolute path of the folder to scan on the server:');
+  // 1. Prefer Neutralino native folder dialog — works on all platforms (Windows,
+  //    macOS, Linux) without requiring the backend to be running.
+  // @ts-ignore
+  if (typeof window.Neutralino !== 'undefined') {
+    try {
+      // @ts-ignore
+      const result = await window.Neutralino.os.showFolderDialog('Select a folder to scan');
+      folder = result ?? null;
+    } catch (e) {
+      console.warn('Neutralino folder dialog failed, falling back to backend API', e);
+    }
   }
 
+  // 2. Fallback: ask the backend to open a system dialog (macOS / Linux zenity)
+  if (!folder) {
+    folder = await apiPickFolder();
+  }
+
+  // No selection made (user cancelled or both APIs unavailable)
   if (!folder) return;
 
   try {

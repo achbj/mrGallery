@@ -16,6 +16,8 @@
   "nativeAllowList": [
     "os.showFolderDialog",
     "os.showOpenDialog",
+    "os.execCommand",
+    "os.spawnProcess",
     "os.open",
     "os.getPath",
     "os.showNotification",
