@@ -58,6 +58,12 @@ import {
   apiRenamePerson,
   type FolderStat
 } from './lib/api';
+import {
+  registerBackendShutdown,
+  showNeutralinoFolderDialog,
+  startBundledBackend,
+  waitForBackendReady
+} from './lib/neutralino';
 
 type ViewMode = 'timeline' | 'folder' | 'kind' | 'location' | 'people' | 'duplicates' | 'manage-folders';
 type KindFilter = 'all' | 'image' | 'video';
@@ -442,66 +448,41 @@ function closeInspector(): void {
 // ---------------------------------------------------------------------------
 
 export async function initializeApp(): Promise<void> {
-  // Spawn backend process if running in Neutralino standalone mode (built exe).
-  // In dev mode this path doesn't exist and spawnProcess will fail silently —
-  // that's fine, the Python uvicorn server is started separately in dev.
-  // @ts-ignore
-  if (typeof window.Neutralino !== 'undefined' && window.NL_MODE === 'window') {
-    try {
-      // spawnProcess launches a background process without blocking JS.
-      // execCommand is blocking (waits for exit) — do NOT use it here.
-      // @ts-ignore
-      const backendPath = `${window.NL_PATH}/backend${window.NL_EXTENSION}`;
-      // @ts-ignore
-      await window.Neutralino.os.spawnProcess(backendPath);
-
-      // @ts-ignore
-      window.Neutralino.events.on('windowClose', async () => {
-        try {
-          await fetch('http://127.0.0.1:8000/api/shutdown', { method: 'POST' });
-        } catch (e) {
-          // ignore
-        }
-        // @ts-ignore
-        window.Neutralino.app.exit();
-      });
-    } catch (e) {
-      console.error('Failed to spawn backend:', e);
-    }
+  const backendLaunch = await startBundledBackend();
+  if (backendLaunch.status === 'failed') {
+    console.error('Failed to start bundled backend:', backendLaunch.error);
   }
+  registerBackendShutdown();
 
   // Draw initial shell immediately so the UI is always interactive
   fullRender();
 
-  // On Windows the backend.exe needs a few seconds to start after being spawned.
-  // Poll briefly (up to 10s) so we don't hit it before it's ready.
-  // On Mac dev the backend is already running, so this resolves on the first try.
-  const MAX_ATTEMPTS = 20; // 20 × 500ms = 10 seconds
-  const RETRY_DELAY_MS = 500;
-
-  state.status = 'Connecting to backend...';
+  state.status = backendLaunch.status === 'launched'
+    ? 'Starting bundled backend...'
+    : 'Connecting to backend...';
   state.busy = true;
   updateStatusBar();
 
-  for (let i = 0; i < MAX_ATTEMPTS; i++) {
-    try {
-      const res = await fetch('http://127.0.0.1:8000/api/media?offset=0&limit=1');
-      if (res.ok) {
-        // Backend is up — proceed immediately
-        break;
-      }
-    } catch {
-      // not ready yet — keep waiting
+  const backendReady = await waitForBackendReady({
+    onAttempt: (attempt) => {
+      state.status = `Connecting to backend... (${Math.round(attempt / 2)}s)`;
+      updateStatusBar();
     }
-    await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
+  });
+
+  if (!backendReady) {
+    state.busy = false;
+    state.status = backendLaunch.status === 'launched'
+      ? 'Error: bundled backend did not start.'
+      : 'Error connecting to backend.';
+    updateStatusBar();
+    return;
   }
 
   state.busy = false;
   state.status = 'Ready.';
   updateStatusBar();
 
-  // Always proceed regardless of polling outcome.
-  // loadNextPage() handles backend-down gracefully with an error message.
   await refreshPeopleCache();
   void loadNextPage();
 }
@@ -1343,20 +1324,12 @@ async function loadNextPage(): Promise<void> {
 async function addFolder(): Promise<void> {
   let folder: string | null = null;
 
-  // 1. Prefer Neutralino native folder dialog — works on all platforms (Windows,
-  //    macOS, Linux) without requiring the backend to be running.
-  // @ts-ignore
-  if (typeof window.Neutralino !== 'undefined') {
-    try {
-      // @ts-ignore
-      const result = await window.Neutralino.os.showFolderDialog('Select a folder to scan');
-      folder = result ?? null;
-    } catch (e) {
-      console.warn('Neutralino folder dialog failed, falling back to backend API', e);
-    }
+  try {
+    folder = await showNeutralinoFolderDialog('Select a folder to scan');
+  } catch (e) {
+    console.warn('Neutralino folder dialog failed, falling back to backend API', e);
   }
 
-  // 2. Fallback: ask the backend to open a system dialog (macOS / Linux zenity)
   if (!folder) {
     folder = await apiPickFolder();
   }
