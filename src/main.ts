@@ -444,12 +444,12 @@ export async function initializeApp(): Promise<void> {
   // @ts-ignore
   if (typeof window.Neutralino !== 'undefined' && window.NL_MODE === 'window') {
     try {
-      // Use execCommand (fire-and-forget shell command) — more reliable on Windows
-      // than spawnProcess for launching a server exe.
+      // spawnProcess launches a background process without blocking JS.
+      // execCommand is blocking (waits for exit) — do NOT use it here.
       // @ts-ignore
       const backendPath = `${window.NL_PATH}/backend${window.NL_EXTENSION}`;
       // @ts-ignore
-      await window.Neutralino.os.execCommand(`"${backendPath}"`, { background: true });
+      await window.Neutralino.os.spawnProcess(backendPath);
 
       // @ts-ignore
       window.Neutralino.events.on('windowClose', async () => {

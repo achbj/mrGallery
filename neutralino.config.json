@@ -67,7 +67,6 @@
   "cli": {
     "binaryName": "mr-gallery",
     "resourcesPath": "/dist/",
-    "extensionsPath": "/extensions/",
     "frontendLibrary": {
       "patchFile": "/index.html",
       "devUrl": "http://localhost:5173",
@@ -77,11 +76,5 @@
       "buildCommand": "npm run build:web"
     },
     "binaryVersion": "6.8.0"
-  },
-  "extensions": [
-    {
-      "id": "backend",
-      "command": "${NL_PATH}/backend${NL_EXTENSION}"
-    }
-  ]
+  }
 }

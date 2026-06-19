@@ -683,12 +683,13 @@ async def shutdown_server():
     return {"status": "shutting down"}
 
 if __name__ == "__main__":
+    import multiprocessing
+    multiprocessing.freeze_support()  # Required for PyInstaller on Windows
     import uvicorn
-    import sys
     port = 8000
     if len(sys.argv) > 1:
         try:
             port = int(sys.argv[1])
-        except:
+        except Exception:
             pass
     uvicorn.run(app, host="127.0.0.1", port=port)
