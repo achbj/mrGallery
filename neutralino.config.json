@@ -1,0 +1,85 @@
+{
+  "$schema": "https://raw.githubusercontent.com/neutralinojs/neutralinojs/main/schemas/neutralino.config.schema.json",
+  "applicationId": "com.bonzainsights.mrgallery",
+  "version": "0.1.0",
+  "defaultMode": "window",
+  "port": 0,
+  "documentRoot": "/dist/",
+  "url": "/",
+  "enableServer": true,
+  "enableNativeAPI": true,
+  "tokenSecurity": "one-time",
+  "logging": {
+    "enabled": true,
+    "writeToLogFile": false
+  },
+  "nativeAllowList": [
+    "os.showFolderDialog",
+    "os.showOpenDialog",
+    "os.open",
+    "os.getPath",
+    "os.showNotification",
+    "filesystem.readDirectory",
+    "filesystem.getStats",
+    "filesystem.getJoinedPath",
+    "filesystem.copy",
+    "filesystem.readBinaryFile",
+    "server.mount",
+    "server.unmount",
+    "server.getMounts"
+  ],
+  "modes": {
+    "window": {
+      "title": "Mr Gallery",
+      "width": 1280,
+      "height": 820,
+      "minWidth": 860,
+      "minHeight": 620,
+      "center": true,
+      "fullScreen": false,
+      "alwaysOnTop": false,
+      "enableInspector": true,
+      "borderless": false,
+      "maximize": false,
+      "hidden": false,
+      "resizable": true,
+      "exitProcessOnClose": true
+    },
+    "browser": {
+      "nativeBlockList": [
+        "filesystem.*",
+        "server.*",
+        "os.*"
+      ]
+    },
+    "chrome": {
+      "width": 1280,
+      "height": 820,
+      "nativeBlockList": [
+        "filesystem.*",
+        "server.*",
+        "os.*"
+      ]
+    }
+  },
+  "cli": {
+    "binaryName": "mr-gallery",
+    "resourcesPath": "/dist/",
+    "extensionsPath": "/extensions/",
+    "frontendLibrary": {
+      "patchFile": "/index.html",
+      "devUrl": "http://localhost:5173",
+      "projectPath": "/",
+      "initCommand": "npm install",
+      "devCommand": "npm run dev",
+      "buildCommand": "npm run build:web"
+    },
+    "binaryVersion": "6.8.0"
+  },
+  "extensions": [
+    {
+      "id": "backend",
+      "command": "${NL_PATH}/backend${NL_EXTENSION}"
+    }
+  ]
+}

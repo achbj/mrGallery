@@ -1,0 +1,60 @@
+name: Build Standalone App
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+        
+    - name: Install Python Dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r backend/requirements.txt
+        
+    - name: Build Backend (PyInstaller)
+      run: |
+        python build_backend.py
+        
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+        
+    - name: Install Node Dependencies
+      run: npm ci
+        
+    - name: Install Neutralino CLI
+      run: npm install -g @neutralinojs/neu
+        
+    - name: Build Web App
+      run: npm run build:web
+        
+    - name: Build Neutralino App
+      run: neu build --release
+      
+    - name: Package Windows Release
+      run: |
+        mkdir dist\MrGallery-Windows
+        # Neutralino outputs to dist/mr-gallery/
+        copy dist\mr-gallery\mr-gallery-win_x64.exe dist\MrGallery-Windows\
+        copy dist\mr-gallery\resources.neu dist\MrGallery-Windows\
+        # Also copy the backend.exe we built
+        copy backend\dist\backend.exe dist\MrGallery-Windows\
+        
+    - name: Upload Windows Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: MrGallery-Windows
+        path: dist\MrGallery-Windows\*
