@@ -465,6 +465,37 @@ export async function initializeApp(): Promise<void> {
   // Draw initial shell
   fullRender();
 
+  // Wait for backend to be ready (especially important on Windows where the
+  // backend process takes a moment to start up after being spawned)
+  state.status = 'Connecting to backend...';
+  state.busy = true;
+  updateStatusBar();
+
+  const MAX_ATTEMPTS = 30;
+  const RETRY_DELAY_MS = 500;
+  let connected = false;
+
+  for (let i = 0; i < MAX_ATTEMPTS; i++) {
+    try {
+      const res = await fetch('http://127.0.0.1:8000/api/media?offset=0&limit=1');
+      if (res.ok) {
+        connected = true;
+        break;
+      }
+    } catch {
+      // not ready yet
+    }
+    await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
+  }
+
+  state.busy = false;
+
+  if (!connected) {
+    state.status = 'Error: Could not connect to backend. Is the Python server running?';
+    updateStatusBar();
+    return;
+  }
+
   state.status = 'Ready.';
   updateStatusBar();
   

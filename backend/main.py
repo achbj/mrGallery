@@ -603,25 +603,55 @@ async def remove_folder(req: DeleteFolderRequest, db: AsyncSession = Depends(get
 
 @app.get("/api/dialog/folder")
 async def pick_folder_dialog():
-    """Opens a native OS folder picker using AppleScript (macOS) and returns the absolute path."""
+    """Opens a native OS folder picker. Supports macOS, Windows and Linux."""
     try:
-        if sys.platform != 'darwin':
-            return {"path": None} # Only supporting mac for native dialogs right now
+        if sys.platform == 'darwin':
+            # macOS — AppleScript
+            cmd = "osascript -e 'tell application \"System Events\" to activate' -e 'POSIX path of (choose folder with prompt \"Select a folder to scan\")'"
+            process = await asyncio.create_subprocess_shell(
+                cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            stdout, _ = await process.communicate()
+            if process.returncode == 0:
+                return {"path": stdout.decode().strip()}
+            return {"path": None}
 
-        cmd = "osascript -e 'tell application \"System Events\" to activate' -e 'POSIX path of (choose folder with prompt \"Select a folder to scan\")'"
-        process = await asyncio.create_subprocess_shell(
-            cmd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE
-        )
-        stdout, stderr = await process.communicate()
-        
-        if process.returncode == 0:
-            folder_path = stdout.decode().strip()
-            return {"path": folder_path}
-        
-        # User clicked cancel
-        return {"path": None}
+        elif sys.platform == 'win32':
+            # Windows — PowerShell FolderBrowserDialog (no extra deps)
+            ps_script = (
+                "Add-Type -AssemblyName System.Windows.Forms;"
+                "$f = New-Object System.Windows.Forms.FolderBrowserDialog;"
+                "$f.Description = 'Select a folder to scan';"
+                "$f.ShowNewFolderButton = $false;"
+                "if ($f.ShowDialog() -eq 'OK') { Write-Output $f.SelectedPath }"
+            )
+            process = await asyncio.create_subprocess_exec(
+                'powershell', '-NoProfile', '-NonInteractive', '-Command', ps_script,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            stdout, _ = await process.communicate()
+            path = stdout.decode('utf-8', errors='replace').strip()
+            return {"path": path if path else None}
+
+        else:
+            # Linux — try zenity (common on GNOME desktops)
+            try:
+                process = await asyncio.create_subprocess_exec(
+                    'zenity', '--file-selection', '--directory',
+                    '--title=Select a folder to scan',
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE
+                )
+                stdout, _ = await process.communicate()
+                if process.returncode == 0:
+                    return {"path": stdout.decode().strip()}
+            except FileNotFoundError:
+                pass  # zenity not available
+            return {"path": None}
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
