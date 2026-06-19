@@ -42,7 +42,9 @@ jobs:
       run: npm run build:web
         
     - name: Build Neutralino App
-      run: neu build --release
+      run: |
+        neu update
+        neu build --release
       
     - name: Package Windows Release
       run: |
