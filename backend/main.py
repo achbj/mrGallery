@@ -94,6 +94,11 @@ app.add_middleware(
 async def startup():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        try:
+            from sqlalchemy import text
+            await conn.execute(text("ALTER TABLE media_items ADD COLUMN duration FLOAT;"))
+        except Exception:
+            pass
 
 IMAGE_EXTS = {'.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.tif', '.tiff', '.avif', '.heic', '.heif', '.jxl', '.svg', '.ico'}
 VIDEO_EXTS = {'.mp4', '.m4v', '.mov', '.webm', '.mkv', '.avi', '.wmv', '.flv', '.mpg', '.mpeg', '.3gp'}
@@ -125,6 +130,19 @@ async def scan_folder(folder: str, db: AsyncSession = Depends(get_db)):
             try:
                 stats = os.stat(path)
                 
+                duration = None
+                if kind == MediaKind.VIDEO:
+                    try:
+                        cap = cv2.VideoCapture(path)
+                        if cap.isOpened():
+                            fps = cap.get(cv2.CAP_PROP_FPS)
+                            frames = cap.get(cv2.CAP_PROP_FRAME_COUNT)
+                            if fps > 0 and frames > 0:
+                                duration = frames / fps
+                        cap.release()
+                    except:
+                        pass
+                
                 items_to_add.append(MediaItem(
                     id=str(uuid.uuid4()),
                     path=path,
@@ -134,7 +152,8 @@ async def scan_folder(folder: str, db: AsyncSession = Depends(get_db)):
                     size=stats.st_size,
                     modifiedAt=stats.st_mtime * 1000,
                     createdAt=stats.st_ctime * 1000,
-                    folder=root
+                    folder=root,
+                    duration=duration
                 ))
             except Exception:
                 continue

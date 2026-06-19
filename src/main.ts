@@ -36,6 +36,7 @@ import {
   buildTimelineGroups,
   formatBytes,
   formatDate,
+  formatDuration,
   type MediaGroup,
   type MediaItem
 } from './lib/media';
@@ -807,7 +808,7 @@ function renderMediaCard(item: MediaItem): string {
       </div>
       <div class="card-meta">
         <strong title="${escapeAttr(item.name)}">${escapeHtml(item.name)}</strong>
-        <span>${item.kind} · ${formatBytes(item.size)}</span>
+        <span>${item.kind} ${item.kind === 'video' && item.duration ? `· ${formatDuration(item.duration)} ` : ''}· ${formatBytes(item.size)}</span>
       </div>
     </article>
   `;
@@ -818,7 +819,7 @@ function renderThumb(item: MediaItem): string {
     return `
       <div style="position: relative; width: 100%; height: 100%;">
         <img loading="lazy" data-src="${escapeAttr(item.previewUrl)}" alt="${escapeAttr(item.name)}" />
-        ${item.kind === 'video' ? '<div class="video-badge"><i data-lucide="play-circle"></i></div>' : ''}
+        ${item.kind === 'video' ? `<div class="video-badge"><i data-lucide="play-circle"></i>${item.duration ? `<span style="margin-left: 4px; font-size: 11px; font-weight: bold; font-family: monospace;">${formatDuration(item.duration)}</span>` : ''}</div>` : ''}
       </div>
     `;
   }
@@ -827,6 +828,7 @@ function renderThumb(item: MediaItem): string {
     <div class="thumb-fallback">
       <i data-lucide="${item.kind === 'video' ? 'video' : 'file-question'}"></i>
       <span>${escapeHtml(item.extension.toUpperCase())}</span>
+      ${item.kind === 'video' && item.duration ? `<div class="video-duration">${formatDuration(item.duration)}</div>` : ''}
     </div>
   `;
 }

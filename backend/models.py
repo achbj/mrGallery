@@ -25,6 +25,7 @@ class MediaItem(Base):
     height = Column(Integer, nullable=True)
     latitude = Column(Float, nullable=True)
     longitude = Column(Float, nullable=True)
+    duration = Column(Float, nullable=True)
     fingerprint = Column(String, nullable=True)
     perceptualHash = Column(String, nullable=True)
     selected = Column(Boolean, default=False)
