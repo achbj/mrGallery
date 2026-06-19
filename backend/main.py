@@ -256,8 +256,16 @@ async def get_thumbnail(item_id: str, db: AsyncSession = Depends(get_db)):
 @app.post("/api/analyze")
 async def analyze_duplicates(db: AsyncSession = Depends(get_db)):
     """Background task to compute fingerprints and perceptual hashes."""
-    # Find items without fingerprint
-    result = await db.execute(select(MediaItem).where(MediaItem.fingerprint == None))
+    # Find items without fingerprint or video items without duration
+    from sqlalchemy import or_
+    result = await db.execute(
+        select(MediaItem).where(
+            or_(
+                MediaItem.fingerprint == None,
+                (MediaItem.kind == MediaKind.VIDEO) & (MediaItem.duration == None)
+            )
+        )
+    )
     items = result.scalars().all()
     
     analyzed = 0
@@ -265,10 +273,23 @@ async def analyze_duplicates(db: AsyncSession = Depends(get_db)):
         if not os.path.exists(item.path):
             continue
             
-        item.fingerprint = compute_fingerprint(item.path)
+        if item.fingerprint is None:
+            item.fingerprint = compute_fingerprint(item.path)
         
-        if item.kind == MediaKind.IMAGE:
+        if item.kind == MediaKind.IMAGE and item.perceptualHash is None:
             item.perceptualHash = compute_dhash(item.path)
+            
+        if item.kind == MediaKind.VIDEO and item.duration is None:
+            try:
+                cap = cv2.VideoCapture(item.path)
+                if cap.isOpened():
+                    fps = cap.get(cv2.CAP_PROP_FPS)
+                    frames = cap.get(cv2.CAP_PROP_FRAME_COUNT)
+                    if fps > 0 and frames > 0:
+                        item.duration = frames / fps
+                cap.release()
+            except Exception:
+                pass
             
         analyzed += 1
         # Commit in batches of 50 to avoid locking

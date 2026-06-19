@@ -870,6 +870,7 @@ function renderInspector(item: MediaItem): string {
       <div><dt>Date</dt><dd>${formatDate(item.takenAt ?? item.createdAt ?? item.modifiedAt)}</dd></div>
       <div><dt>Size</dt><dd>${formatBytes(item.size)}</dd></div>
       <div><dt>Format</dt><dd>${escapeHtml(item.extension.toUpperCase())}</dd></div>
+      ${item.kind === 'video' && item.duration ? `<div><dt>Duration</dt><dd>${formatDuration(item.duration)}</dd></div>` : ''}
       <div><dt>Dimensions</dt><dd>${item.width && item.height ? `${item.width} × ${item.height}` : 'Unknown'}</dd></div>
       <div><dt>Location</dt><dd>${item.location ? formatCoords(item.location.latitude, item.location.longitude) : 'No GPS'}</dd></div>
     </dl>
