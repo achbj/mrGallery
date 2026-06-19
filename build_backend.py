@@ -14,7 +14,10 @@ PyInstaller.__main__.run([
     'main.py',
     '--name=backend',
     '--onefile',
-    f'--add-data=models/*{os.pathsep}models/',  # Package models folder
+    f'--distpath={os.path.abspath("dist")}',
+    f'--workpath={os.path.abspath("build")}',
+    f'--specpath={os.path.abspath(".")}',
+    f'--add-data={os.path.abspath("models")}/*{os.pathsep}models/',  # Package models folder
     '--hidden-import=uvicorn',
     '--hidden-import=sqlalchemy.ext.asyncio',
     '--hidden-import=cv2',
