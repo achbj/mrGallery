@@ -6,15 +6,14 @@ from sqlalchemy import create_engine
 
 def _get_db_dir() -> str:
     """Return the directory where gallery.db should be stored.
-    When running as a PyInstaller bundle, use the directory that contains
-    the executable so the database persists across runs and is always writable.
-    In development, fall back to the backend package directory.
+    - PyInstaller bundle (frozen exe): next to the .exe file
+    - Development: project root (one level above the backend/ package)
     """
     if getattr(sys, 'frozen', False):
-        # PyInstaller sets sys.frozen = True and sys.executable = path to .exe
+        # PyInstaller sets sys.frozen = True; sys.executable = path to .exe
         return os.path.dirname(sys.executable)
-    # Development: store next to this file
-    return os.path.dirname(os.path.abspath(__file__))
+    # Development: __file__ is backend/database.py → go up one dir → project root
+    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 _DB_PATH = os.path.join(_get_db_dir(), "gallery.db")
 
@@ -32,3 +31,4 @@ Base = declarative_base()
 async def get_db():
     async with AsyncSessionLocal() as session:
         yield session
+

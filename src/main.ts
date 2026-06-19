@@ -440,7 +440,9 @@ function closeInspector(): void {
 // ---------------------------------------------------------------------------
 
 export async function initializeApp(): Promise<void> {
-  // Spawn backend process if running in Neutralino standalone mode
+  // Spawn backend process if running in Neutralino standalone mode (built exe).
+  // In dev mode this path doesn't exist and spawnProcess will fail silently —
+  // that's fine, the Python uvicorn server is started separately in dev.
   // @ts-ignore
   if (typeof window.Neutralino !== 'undefined' && window.NL_MODE === 'window') {
     try {
@@ -466,49 +468,42 @@ export async function initializeApp(): Promise<void> {
     }
   }
 
-  // Draw initial shell
+  // Draw initial shell immediately so the UI is always interactive
   fullRender();
 
-  // Wait for backend to be ready (especially important on Windows where the
-  // backend.exe needs several seconds to start up after being launched).
-  state.status = 'Starting backend, please wait...';
+  // On Windows the backend.exe needs a few seconds to start after being spawned.
+  // Poll briefly (up to 10s) so we don't hit it before it's ready.
+  // On Mac dev the backend is already running, so this resolves on the first try.
+  const MAX_ATTEMPTS = 20; // 20 × 500ms = 10 seconds
+  const RETRY_DELAY_MS = 500;
+
+  state.status = 'Connecting to backend...';
   state.busy = true;
   updateStatusBar();
-
-  // Poll up to 20 seconds (40 × 500 ms)
-  const MAX_ATTEMPTS = 40;
-  const RETRY_DELAY_MS = 500;
-  let connected = false;
 
   for (let i = 0; i < MAX_ATTEMPTS; i++) {
     try {
       const res = await fetch('http://127.0.0.1:8000/api/media?offset=0&limit=1');
       if (res.ok) {
-        connected = true;
+        // Backend is up — proceed immediately
         break;
       }
     } catch {
       // not ready yet — keep waiting
     }
-    state.status = `Starting backend... (${Math.round(((i + 1) * RETRY_DELAY_MS) / 1000)}s)`;
-    updateStatusBar();
     await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
   }
 
   state.busy = false;
-
-  if (!connected) {
-    state.status = 'Error: Could not connect to backend. Make sure backend.exe is in the same folder.';
-    updateStatusBar();
-    return;
-  }
-
   state.status = 'Ready.';
   updateStatusBar();
-  
+
+  // Always proceed regardless of polling outcome.
+  // loadNextPage() handles backend-down gracefully with an error message.
   await refreshPeopleCache();
   void loadNextPage();
 }
+
 
 
 function updateSidebar(): void {
