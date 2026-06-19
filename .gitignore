@@ -6,3 +6,4 @@ resources.neu
 *.log
 .DS_Store
 .tmp/
+*.db

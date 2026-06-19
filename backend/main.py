@@ -210,10 +210,10 @@ async def get_thumbnail(item_id: str, db: AsyncSession = Depends(get_db)):
     elif item.kind == MediaKind.VIDEO:
         try:
             cap = cv2.VideoCapture(item.path)
-            fps = cap.get(cv2.CAP_PROP_FPS)
-            if fps > 0:
-                cap.set(cv2.CAP_PROP_POS_FRAMES, int(fps))  # 1 second in
-                
+            if not cap.isOpened():
+                raise HTTPException(status_code=500, detail="Could not open video")
+            
+            # Read first frame
             ret, frame = cap.read()
             cap.release()
             

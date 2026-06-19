@@ -53,6 +53,7 @@ import {
   apiFaceScanStatus,
   apiGetFolders,
   apiRemoveFolder,
+  apiRenamePerson,
   type FolderStat
 } from './lib/api';
 
@@ -682,17 +683,39 @@ function renderPeopleView(items: MediaItem[]): string {
 
   return scanBtnHtml + groups
     .map(
-      (group) => `
-        <section class="media-section">
-          <header>
-            <h2><i data-lucide="user-round" style="width:16px;height:16px;margin-right:6px;"></i>${escapeHtml(group.label)}</h2>
-            <span>${group.items.length} ${group.items.length === 1 ? 'photo' : 'photos/videos'}</span>
-          </header>
-          <div class="media-grid">
-            ${group.items.map(renderMediaCard).join('')}
-          </div>
-        </section>
-      `
+      (group) => {
+        const images = group.items.filter((i) => i.kind === 'image');
+        const videos = group.items.filter((i) => i.kind === 'video');
+        
+        let html = `
+          <section class="media-section">
+            <header style="margin-bottom: 0;">
+              <h2><i data-lucide="user-round" style="width:16px;height:16px;margin-right:6px;"></i>${escapeHtml(group.label)}</h2>
+              <span>${group.items.length} total</span>
+            </header>
+        `;
+
+        if (images.length > 0) {
+          html += `
+            <div style="padding: 12px 16px 8px; font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px;">Photos (${images.length})</div>
+            <div class="media-grid">
+              ${images.map(renderMediaCard).join('')}
+            </div>
+          `;
+        }
+
+        if (videos.length > 0) {
+          html += `
+            <div style="padding: 12px 16px 8px; font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px;">Videos (${videos.length})</div>
+            <div class="media-grid">
+              ${videos.map(renderMediaCard).join('')}
+            </div>
+          `;
+        }
+
+        html += `</section>`;
+        return html;
+      }
     )
     .join('');
 }
@@ -1471,13 +1494,6 @@ async function deleteFiles(ids: Set<string>): Promise<void> {
   const deletedCount = await apiDeleteFiles(paths);
 
   if (deletedCount > 0) {
-
-    // Clear thumb cache for removed items
-    for (const item of toDelete) {
-      if (item.previewUrl) {
-        thumbCache.delete(item.previewUrl);
-      }
-    }
 
     state.items = state.items.filter((item) => !ids.has(item.id));
     for (const id of ids) {
