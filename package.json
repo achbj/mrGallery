@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "app:dev": "neu run",
+    "prebuild:web": "node scripts/restore-neutralino-globals.mjs",
     "build:web": "vite build",
     "build": "npm run test && npm run build:web",
     "app:build": "neu build --release",
